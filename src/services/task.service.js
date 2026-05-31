@@ -2,6 +2,7 @@ const prisma = require('../config/db');
 const { AppError, ErrorCodes } = require('../constants/errors');
 const Transitions = require('../constants/transitions');
 const { getCache, setCache, invalidateKeys } = require('../config/redis');
+const { notifyUser } = require('../websocket/ws');
 
 // create a new task in a project under the organization
 async function createTask(data, orgId) {
@@ -43,6 +44,13 @@ async function createTask(data, orgId) {
 
   // invalidate cache for the entire organization
   await invalidateKeys(`tasks:org:${orgId}:*`);
+
+  // send real-time notification to the assignee
+  notifyUser(assigneeId, {
+    type: 'TASK_ASSIGNED',
+    message: `You have been assigned a new task: "${createdTask.title}"`,
+    data: { task: createdTask },
+  });
 
   return createdTask;
 }
@@ -184,6 +192,13 @@ async function updateTask(taskId, data, user) {
   // invalidate cache for the entire organization
   await invalidateKeys(`tasks:org:${user.orgId}:*`);
 
+  // notify assignee about updates
+  notifyUser(updatedTask.assigneeId, {
+    type: 'TASK_UPDATED',
+    message: `Task "${updatedTask.title}" details have been updated.`,
+    data: { task: updatedTask },
+  });
+
   return updatedTask;
 }
 
@@ -223,6 +238,13 @@ async function updateTaskStatus(taskId, status, user) {
 
   // invalidate cache for the entire organization
   await invalidateKeys(`tasks:org:${user.orgId}:*`);
+
+  // notify assignee about status transitions
+  notifyUser(updatedTask.assigneeId, {
+    type: 'TASK_STATUS_CHANGED',
+    message: `Task "${updatedTask.title}" status changed to: ${updatedTask.status}`,
+    data: { task: updatedTask },
+  });
 
   return updatedTask;
 }

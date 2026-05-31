@@ -1,0 +1,300 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Team Task Tracker API",
+    "description": "REST API for a secure, role-based, team task tracker with JWT rotation, Redis caching, organization boundaries, and real-time WebSocket notifications.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000",
+      "description": "Local Development Server"
+    }
+  ],
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "summary": "Register a new user and organization",
+        "description": "Creates a new user and either generates a new organization or assigns them to an existing one. Requires either `orgId` or `orgName`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "name"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "member@email.com" },
+                  "password": { "type": "string", "minLength": 8, "example": "password123" },
+                  "name": { "type": "string", "example": "Member User" },
+                  "orgId": { "type": "string", "example": "cuid-org-id" },
+                  "orgName": { "type": "string", "example": "Task Tracker Corp" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "409": {
+            "description": "Email address already registered"
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Log in and get session tokens",
+        "description": "Verifies credentials, issues a short-lived access token, and sets a secure HttpOnly SameSite cookie containing the refresh token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "admin@email.com" },
+                  "password": { "type": "string", "example": "admin" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "summary": "Rotate refresh and access tokens",
+        "description": "Reads refresh token from secure cookie, revokes it, issues new access token, and sets a rolled refresh token cookie. Detects and revokes all active sessions upon replay attempts.",
+        "responses": {
+          "200": {
+            "description": "Tokens successfully rotated"
+          },
+          "401": {
+            "description": "Invalid, expired, or reused token"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "Log out from session",
+        "description": "Revokes the active refresh token in the database and clears the refresh cookie.",
+        "responses": {
+          "200": {
+            "description": "Logged out successfully"
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "summary": "Retrieve organization users",
+        "description": "Fetches a list of all users within the admin's organization. Admin only.",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful retrieval"
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          }
+        }
+      }
+    },
+    "/api/users/{id}/role": {
+      "patch": {
+        "summary": "Update user role",
+        "description": "Modifies a user's permission role. Restricted to Admins. Enforces strict organization scope boundary protection.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["role"],
+                "properties": {
+                  "role": { "type": "string", "enum": ["ADMIN", "MANAGER", "MEMBER"], "example": "MANAGER" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role successfully updated"
+          },
+          "404": {
+            "description": "User not found within organization"
+          }
+        }
+      }
+    },
+    "/api/projects": {
+      "get": {
+        "summary": "List organization projects",
+        "description": "Retrieves all projects belonging to the requesting user's organization.",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Projects list successfully loaded"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new project",
+        "description": "Adds a new project under the organization. Restricted to Admins and Managers.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "example": "Project Delta" },
+                  "description": { "type": "string", "example": "Redesign UI board" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created successfully"
+          }
+        }
+      }
+    },
+    "/api/tasks": {
+      "get": {
+        "summary": "List organization tasks",
+        "description": "Loads tasks scoped by organization and query filters. NORMAL members see only their assigned tasks. Results are cached via Redis.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "projectId", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "priority", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful retrieval"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new task",
+        "description": "Creates a new task. Restricted to Admins and Managers. Enforces validation and organization boundaries.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "assigneeId", "projectId"],
+                "properties": {
+                  "title": { "type": "string", "example": "Write API docs" },
+                  "description": { "type": "string", "example": "Write OpenAPI specification file" },
+                  "priority": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH"], "default": "MEDIUM" },
+                  "dueDate": { "type": "string", "format": "date-time" },
+                  "assigneeId": { "type": "string", "example": "cuid-user-id" },
+                  "projectId": { "type": "string", "example": "cuid-project-id" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Task created successfully"
+          }
+        }
+      }
+    },
+    "/api/tasks/{id}/status": {
+      "patch": {
+        "summary": "Transition task status",
+        "description": "Transitions the state of a task. Restricts status movements to valid transitions. Assignees, managers, and admins are authorized.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE", "BLOCKED"], "example": "IN_PROGRESS" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task status transitioned successfully"
+          },
+          "400": {
+            "description": "Invalid transition sequence requested"
+          }
+        }
+      }
+    },
+    "/api/analytics/overdue": {
+      "get": {
+        "summary": "Get overdue tasks analytics",
+        "description": "Calculates and returns details of all active tasks that have passed their deadline. Restricted to Admins and Managers.",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Overdue analysis loaded successfully"
+          }
+        }
+      }
+    },
+    "/api/analytics/completion-time": {
+      "get": {
+        "summary": "Get average completion time statistics",
+        "description": "Computes average task duration (in hours) between task creation and status change to DONE. Restricted to Admins and Managers.",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Completion time analysis calculated successfully"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # the main express api container
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000" # http server
+      - "8080:8080" # websocket notifications
+    environment:
+      - PORT=3000
+      - WS_PORT=8080
+      - NODE_ENV=production
+      - DATABASE_URL=file:./dev.db
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=production-secret-should-be-injected-securely-in-prod-pipelines
+    volumes:
+      - sqlite-data:/app/prisma
+    depends_on:
+      - redis
+    restart: always
+
+  # redis cache store
+  redis:
+    image: redis:7-alpine
+    restart: always
+
+volumes:
+  sqlite-data:
+    driver: local
