@@ -61,6 +61,10 @@ app.get('/health', (_req, res) => {
 const authRoutes = require('./routes/auth.routes');
 app.use('/api/auth', authRoutes);
 
+// mount user routes
+const userRoutes = require('./routes/user.routes');
+app.use('/api/users', userRoutes);
+
 // catch-all 404
 app.use((_req, res) => {
   res.status(404).json({
