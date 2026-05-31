@@ -57,7 +57,9 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// routes go here as we build them out
+// mount auth routes
+const authRoutes = require('./routes/auth.routes');
+app.use('/api/auth', authRoutes);
 
 // catch-all 404
 app.use((_req, res) => {
@@ -68,21 +70,9 @@ app.use((_req, res) => {
   });
 });
 
-// global error handler — keeps error responses consistent
-app.use((err, _req, res, _next) => {
-  const status = err.status || 500;
-  const code = err.code || 'INTERNAL_ERROR';
-  const message = status === 500
-    ? 'An unexpected error occurred.'
-    : err.message;
-
-  console.error(`[${code}] ${err.message}`);
-  if (process.env.NODE_ENV !== 'production' && err.stack) {
-    console.error(err.stack);
-  }
-
-  res.status(status).json({ status, code, message });
-});
+// global error handler
+const errorHandler = require('./middlewares/errorHandler');
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 
