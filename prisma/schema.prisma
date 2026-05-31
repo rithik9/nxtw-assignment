@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// each org has its own set of users and projects
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users    User[]
+  projects Project[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("MEMBER") // ADMIN | MANAGER | MEMBER
+  orgId     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization  Organization   @relation(fields: [orgId], references: [id])
+  assignedTasks Task[]
+  refreshTokens RefreshToken[]
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  orgId       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  tasks        Task[]
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  priority    String   @default("MEDIUM") // LOW | MEDIUM | HIGH
+  status      String   @default("TODO")   // TODO -> IN_PROGRESS -> IN_REVIEW -> DONE, or BLOCKED
+  dueDate     DateTime?
+  assigneeId  String
+  projectId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignee User    @relation(fields: [assigneeId], references: [id])
+  project  Project  @relation(fields: [projectId], references: [id])
+
+  // these speed up the most common queries (filtering by status, fetching a user's tasks, sorting by deadline)
+  @@index([status])
+  @@index([assigneeId])
+  @@index([dueDate])
+  @@index([assigneeId, status])
+}
+
+// storing refresh tokens so we can do rotation and detect reuse
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

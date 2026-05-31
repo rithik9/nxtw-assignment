@@ -1,0 +1,39 @@
+{
+  "name": "team-task-tracker-api",
+  "version": "1.0.0",
+  "description": "REST API for a team-based task tracker with authentication, RBAC, caching, and containerized deployment",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "jest --forceExit --detectOpenHandles",
+    "prisma:migrate": "npx prisma migrate dev",
+    "prisma:seed": "npx prisma db seed"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
+    "ioredis": "^5.11.0",
+    "joi": "^18.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
+    "prisma": "^5.22.0",
+    "supertest": "^7.2.2"
+  }
+}
