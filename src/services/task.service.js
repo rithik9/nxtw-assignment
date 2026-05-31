@@ -1,6 +1,7 @@
 const prisma = require('../config/db');
 const { AppError, ErrorCodes } = require('../constants/errors');
 const Transitions = require('../constants/transitions');
+const { getCache, setCache, invalidateKeys } = require('../config/redis');
 
 // create a new task in a project under the organization
 async function createTask(data, orgId) {
@@ -22,7 +23,7 @@ async function createTask(data, orgId) {
     throw new AppError(404, ErrorCodes.NOT_FOUND, 'The specified assignee was not found in your organization.');
   }
 
-  return prisma.task.create({
+  const createdTask = await prisma.task.create({
     data: {
       title,
       description,
@@ -39,12 +40,26 @@ async function createTask(data, orgId) {
       project: true,
     },
   });
+
+  // invalidate cache for the entire organization
+  await invalidateKeys(`tasks:org:${orgId}:*`);
+
+  return createdTask;
 }
 
 // fetch tasks, enforcing role boundaries and organization isolation
 async function getTasks(filters, user) {
   const { projectId, status, priority } = filters;
   
+  // construct cache key with all filters to avoid cache collision
+  const cacheKey = `tasks:org:${user.orgId}:role:${user.role}:user:${user.id}:proj:${projectId || 'all'}:status:${status || 'all'}:priority:${priority || 'all'}`;
+  
+  // check if data exists in redis cache
+  const cachedData = await getCache(cacheKey);
+  if (cachedData) {
+    return JSON.parse(cachedData);
+  }
+
   const whereClause = {
     project: { orgId: user.orgId },
   };
@@ -66,7 +81,7 @@ async function getTasks(filters, user) {
     whereClause.priority = priority;
   }
 
-  return prisma.task.findMany({
+  const tasks = await prisma.task.findMany({
     where: whereClause,
     include: {
       assignee: {
@@ -76,6 +91,11 @@ async function getTasks(filters, user) {
     },
     orderBy: { createdAt: 'desc' },
   });
+
+  // cache results for 5 minutes
+  await setCache(cacheKey, JSON.stringify(tasks), 300);
+
+  return tasks;
 }
 
 // retrieve a single task by ID with access boundary checks
@@ -150,7 +170,7 @@ async function updateTask(taskId, data, user) {
     updateData.status = status;
   }
 
-  return prisma.task.update({
+  const updatedTask = await prisma.task.update({
     where: { id: taskId },
     data: updateData,
     include: {
@@ -160,6 +180,11 @@ async function updateTask(taskId, data, user) {
       project: true,
     },
   });
+
+  // invalidate cache for the entire organization
+  await invalidateKeys(`tasks:org:${user.orgId}:*`);
+
+  return updatedTask;
 }
 
 // update status only, enforcing business logic transitions
@@ -185,7 +210,7 @@ async function updateTaskStatus(taskId, status, user) {
     }
   }
 
-  return prisma.task.update({
+  const updatedTask = await prisma.task.update({
     where: { id: taskId },
     data: { status },
     include: {
@@ -195,6 +220,11 @@ async function updateTaskStatus(taskId, status, user) {
       project: true,
     },
   });
+
+  // invalidate cache for the entire organization
+  await invalidateKeys(`tasks:org:${user.orgId}:*`);
+
+  return updatedTask;
 }
 
 // delete a task
@@ -211,6 +241,9 @@ async function deleteTask(taskId, orgId) {
   await prisma.task.delete({
     where: { id: taskId },
   });
+
+  // invalidate cache for the entire organization
+  await invalidateKeys(`tasks:org:${orgId}:*`);
 }
 
 module.exports = {

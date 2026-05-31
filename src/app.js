@@ -73,6 +73,10 @@ app.use('/api/tasks', taskRoutes);
 const projectRoutes = require('./routes/project.routes');
 app.use('/api/projects', projectRoutes);
 
+// mount analytics routes
+const analyticsRoutes = require('./routes/analytics.routes');
+app.use('/api/analytics', analyticsRoutes);
+
 // catch-all 404
 app.use((_req, res) => {
   res.status(404).json({
