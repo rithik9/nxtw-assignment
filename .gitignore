@@ -144,3 +144,7 @@ vite.config.ts.timestamp-*
 
 # Secret files
 jwt_secret.txt
+
+# Database files
+*.db
+*.db-journal

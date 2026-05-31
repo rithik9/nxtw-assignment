@@ -92,10 +92,15 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 
+const { initWebSocket } = require('./websocket/ws');
+
 if (require.main === module) {
   app.listen(PORT, '127.0.0.1', () => {
     console.log(`Server running on http://127.0.0.1:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    
+    // start websocket server
+    initWebSocket();
   });
 }
 
