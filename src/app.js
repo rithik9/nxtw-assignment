@@ -14,7 +14,8 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"], // TODO(security): swap for nonces later
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
     },
@@ -77,7 +78,20 @@ app.use('/api/projects', projectRoutes);
 const analyticsRoutes = require('./routes/analytics.routes');
 app.use('/api/analytics', analyticsRoutes);
 
-// catch-all 404
+const path = require('path');
+
+// serve client build static assets
+app.use(express.static(path.join(__dirname, '../public')));
+
+// serve index.html for client-side spa routing
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api')) {
+    return res.sendFile(path.join(__dirname, '../public/index.html'));
+  }
+  next();
+});
+
+// catch-all 404 for unmatched API routes
 app.use((_req, res) => {
   res.status(404).json({
     status: 404,
@@ -95,8 +109,8 @@ const PORT = process.env.PORT || 3000;
 const { initWebSocket } = require('./websocket/ws');
 
 if (require.main === module) {
-  app.listen(PORT, '127.0.0.1', () => {
-    console.log(`Server running on http://127.0.0.1:${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     
     // start websocket server

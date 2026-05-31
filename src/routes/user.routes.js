@@ -8,14 +8,12 @@ const Roles = require('../constants/roles');
 
 const router = express.Router();
 
-// all routes here require admin access for safety
 router.use(authenticate);
-router.use(authorize(Roles.ADMIN));
 
-// fetch users in organization
-router.get('/', userController.getUsers);
+// fetch users in organization - both ADMIN and MANAGER can view to assign tasks
+router.get('/', authorize(Roles.ADMIN, Roles.MANAGER), userController.getUsers);
 
-// change role of an existing user
-router.patch('/:id/role', validate(updateRoleSchema), userController.updateUserRole);
+// change role of an existing user - ADMIN only
+router.patch('/:id/role', authorize(Roles.ADMIN), validate(updateRoleSchema), userController.updateUserRole);
 
 module.exports = router;

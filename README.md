@@ -1,17 +1,25 @@
-# Team Task Tracker API
+# Team Task Tracker
 
-This is a role-based backend designed for collaborative teams to manage projects and track task lifecycles. It includes access token rotation, organization isolation, query caching via Redis, and real-time alerts using WebSockets.
+This repository contains a role-based team task management application with a secure backend API and an interactive React web interface.
+
+The system features token-based authentication (JWT rotation), organization-scoped data boundaries, Redis caching with active invalidation, standalone WebSocket notifications, and a dark-theme Kanban task board.
 
 ---
 
 ## Tech Stack
 
+### Backend API
 - **Application**: Node.js & Express (Express 5)
 - **Database**: SQLite with Prisma ORM
-- **Cache**: Redis via `ioredis` (runs with automatic graceful fallback if offline)
+- **Cache**: Redis via `ioredis` (automatic bypass fallback if offline)
 - **Validation**: Joi
 - **Real-Time**: WebSockets via `ws`
 - **Testing**: Jest & Supertest
+
+### Frontend Client
+- **Core**: React (v18)
+- **Build Tool**: Vite
+- **Styling**: Vanilla CSS (theme variables, glassmorphism, responsive board)
 
 ---
 
@@ -91,13 +99,19 @@ Check `openapi.json` for full schemas and payload definitions.
 ## Local Setup
 
 ### 1. Installation
-Clone the repository and install dependencies:
+Clone the repository and install all dependencies:
 ```bash
+# Install backend dependencies
 npm install
+
+# Install frontend dependencies
+cd client
+npm install
+cd ..
 ```
 
 ### 2. Configure Environment
-Create a `.env` file or check the existing one:
+Create a `.env` file in the root directory:
 ```env
 PORT=3000
 WS_PORT=8080
@@ -117,11 +131,21 @@ Seeded accounts:
 - **Manager**: manager@email.com (password: admin)
 - **Member**: member@email.com (password: admin)
 
-### 4. Start Server
-Run the Express application locally:
+### 4. Running the Application
+
+You will need two terminal tabs to run the backend and frontend simultaneously in local development:
+
+**Tab 1: Start Backend API**
 ```bash
 npm run dev
 ```
+
+**Tab 2: Start Frontend Client**
+```bash
+cd client
+npm run dev
+```
+Vite will start the client dev server at `http://127.0.0.1:5173`. Traffic targeting `/api` will be proxied automatically to the API port.
 
 ### 5. Run Tests
 Execute the integration test suite:
