@@ -65,6 +65,14 @@ app.use('/api/auth', authRoutes);
 const userRoutes = require('./routes/user.routes');
 app.use('/api/users', userRoutes);
 
+// mount task routes
+const taskRoutes = require('./routes/task.routes');
+app.use('/api/tasks', taskRoutes);
+
+// mount project routes
+const projectRoutes = require('./routes/project.routes');
+app.use('/api/projects', projectRoutes);
+
 // catch-all 404
 app.use((_req, res) => {
   res.status(404).json({
